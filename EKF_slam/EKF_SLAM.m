@@ -4,6 +4,7 @@
 %  EFK-SLAM                              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear;
+clf;
 
 %==== TEST: Setup uncertianty parameters (try different values!) ===
 sig_x = 0.25;
@@ -48,16 +49,15 @@ for i = 1 : 2 : k*2
 end
 
 %Measurement Jacobian w.r.t pose
-dz_dp = @(i,j) [landmark(j)/(landmark(i)^2+landmark(j)^2), -landmark(i)/(landmark(i)^2+landmark(j)^2), -1;...
-               -landmark(i)/sqrt((landmark(i)^2+landmark(j)^2)) , -landmark(j)/sqrt((landmark(i)^2+landmark(j)^2)), 0];
+dzdp = @(i) [1, 0, -sin(measure(i));...
+                0 , 1, cos(measure(i))];
 %Measurement Jacobian w.r.t landmark
-dz_dl = @(i,j) [-landmark(j)/(landmark(i)^2+landmark(j)^2), landmark(i)/(landmark(i)^2+landmark(j)^2); ...
-            landmark(i)/sqrt((landmark(i)^2+landmark(j)^2)), landmark(j)/sqrt((landmark(i)^2+landmark(j)^2))]; 
+dzdl = @(i,j) [-measure(j)*sin(measure(i)), cos(measure(i)); ...
+                 measure(j)*cos(measure(i)), sin(measure(i))]; 
 landmark_cov = zeros(k*2, k*2);
 for i = 1 : 2 : k*2
    j = i+1;
-   landmark_cov(i:j,i:j) = dz_dp(i,j)*pose_cov*dz_dp(i,j)'+dz_dl(i,j)*measure_cov*dz_dl(i,j)';
-   %landmark_cov(i:j,i:j) = dz_dl(i,j)*[landmark(i);landmark(i+1)]*dz_dl(i,j)';
+   landmark_cov(i:j,i:j) = dzdp(i)*pose_cov*dzdp(i)'+dzdl(i,j)*measure_cov*dzdl(i,j)';
 end
 %==== Setup state vector x with pose and landmark vector ====
 x = [pose ; landmark];
@@ -80,21 +80,22 @@ while ischar(tline)
     %==== (Notice: predict state x_pre[] and covariance P_pre[] using input control data and control_cov[]) ====
     
     % Write your code here...
-    theta_t = x(3);
-    x_pre = x + [cos(theta_t)*d; sin(theta_t*d); alpha; zeros(k*2,1)];
     
-    % State Jacobian w.r.t pose
-    G_robot = [1, 0, -d*sin(theta_t);...
-               0, 1,  d*cos(theta_t);...
-               0, 0,  1              ];
-    G = zeros(3+2*k, 3+2*k);
-    G(1:3,1:3) = G_robot;
-    % State Jacobian w.r.t input
-    B_robot = [cos(theta_t), 0 ,0;...
-               sin(theta_t), 0, 0;...
-                          0, 0, 1];
+    % Predict state space
+    theta_t = x(3);
+    x_pre = x + [cos(theta_t)*d; sin(theta_t)*d; alpha; zeros(2*k,1)];
+
+    % Predict Covariance
+    %    State Jacobian w.r.t pose
+    G = eye(3+2*k, 3+2*k);
+    G(1:3,1:3) = [1, 0, -d*sin(theta_t);...
+                  0, 1,  d*cos(theta_t);...
+                  0, 0,  1];
+    %    State Jacobian w.r.t input
     B = zeros(3+2*k, 3+2*k);
-    B(1:3,1:3) = B_robot;   
+    B(1:3,1:3) = [cos(theta_t), 0 ,0;...
+                  sin(theta_t), 0, 0;...
+                             0, 0, 1];
 
     C_cov = zeros(3+2*k, 3+2*k);
     C_cov(1:3,1:3) = control_cov;
@@ -112,58 +113,65 @@ while ischar(tline)
     %==== (Notice: update state x[] and covariance P[] using input measurement data and measure_cov[]) ====
     
     % Write your code here...
-    Q = zeros(3+2*k, 3+2*k);
-    for i = 1 : 2 : 2*k
-        Q(i+3:i+4,i+3:i+4) = measure_cov;
+  
+    %Measurement Jacobian w.r.t pose
+    %dzdp = @(i) [1, 0, -sin(measure(i)+x_pre(3));...
+    %                0 , 1, cos(measure(i)+x_pre(3))];
+    %Measurement Jacobian w.r.t landmark
+    %dzdl = @(i,j) [-measure(j)*sin(measure(i)+x_pre(3)), cos(measure(i)+x_pre(3)); ...
+    %                 measure(j)*cos(measure(i)+x_pre(3)), sin(measure(i)+x_pre(3))]; 
+    B = zeros(k*2, k*2);
+    for i = 1 : 2 : k*2
+       B(i:i+1,i:i+1) = measure_cov;
+      % B(i+3:i+4,i+3:i+4) = dzdp(i)*pose_cov*dzdp(i)'+dzdl(i,i+1)*measure_cov*dzdl(i,i+1)';
+       %landmark_cov(i:j,i:j) = dz_dl(i,j)*[landmark(i);landmark(i+1)]*dz_dl(i,j)';
     end
     
+    % beta, alpha to lx, ly
     z = zeros(k*2,1);
     for i = 1 : 2 : k*2
-            z(i)= cos(measure(i))*measure(i+1);
-            z(i+1)= sin(measure(i))*measure(i+1);
+            z(i)= x_pre(1)+cos(measure(i)+x_pre(3))*measure(i+1);
+            z(i+1)= x_pre(2)+sin(measure(i)+x_pre(3))*measure(i+1);
     end
-    %Measurement Jacobian w.r.t pose
+    
+    %Landmark Jacobian w.r.t pose
     delta_x = @(i) z(i)-x_pre(1);
-    delta_y = @(i) z(i)-x_pre(2);
-    dz_dp = @(i,j) [delta_y(j)/(delta_x(i)^2+delta_y(j)^2), -delta_x(i)/(delta_x(i)^2+delta_y(j)^2), -1;...
+    delta_y = @(j) z(j)-x_pre(2);
+    dldp = @(i,j) [delta_y(j)/(delta_x(i)^2+delta_y(j)^2), -delta_x(i)/(delta_x(i)^2+delta_y(j)^2), -1;...
                    -delta_x(i)/sqrt((delta_x(i)^2+delta_y(j)^2)) , -delta_y(j)/sqrt((delta_x(i)^2+delta_y(j)^2)), 0];
-    %Measurement Jacobian w.r.t landmark
-    dz_dl = @(i,j) [-delta_y(j)/(delta_x(i)^2+delta_y(j)^2), delta_x(i)/(delta_x(i)^2+delta_y(j)^2); ...
+    %Landmark Jacobian w.r.t landmark
+    dldl = @(i,j) [-delta_y(j)/(delta_x(i)^2+delta_y(j)^2), delta_x(i)/(delta_x(i)^2+delta_y(j)^2); ...
                 delta_x(i)/sqrt((delta_x(i)^2+delta_y(j)^2)), delta_y(j)/sqrt((delta_x(i)^2+delta_y(j)^2))]; 
 
-    H = zeros(3+2*k, 3+2*k);
-    H(1:3,1:3) = eye(3,3);
+    H = zeros(2*k, 2*k+3);
     for i = 1 : 2 : 2*k
-        H(i+3:i+4,1:3) = dz_dp(i,i+1);
-        H(i+3:i+4,i+3:i+4) = dz_dl(i,i+1);
+        H(i:i+1,1:3) = dldp(i,i+1);
+        H(i:i+1,i+3:i+4) = dldl(i,i+1);
     end
     
     z_hat = zeros(2*k,1);
     for i = 1:2:2*k
-        %z_hat(i) = wrapToPi(atan2(x_pre(i+4)-x_pre(2),x_pre(i+3)-x_pre(1))-x_pre(3));
-        z_hat(i) = (atan2(x_pre(i+4)-x_pre(2),x_pre(i+3)-x_pre(1))-x_pre(3));
+        z_hat(i) = wrapToPi(atan2(x_pre(i+4)-x_pre(2),x_pre(i+3)-x_pre(1))-x_pre(3));
         z_hat(i+1) = sqrt((x_pre(i+3)-x_pre(1))^2 + (x_pre(i+4)-x_pre(2))^2);
     end
     
-    K = P_pre*H'*(H*P_pre*H'+Q)^-1;
-    
-    z = [0;0;0;z];
-    z_hat = [0;0;0;z_hat];
-    x = x_pre + K*(z - z_hat);
+    K = P_pre*H'*(H*P_pre*H'+B)^-1;
+    x = x_pre + K*(measure - z_hat);
     P = (eye(2*k+3,2*k+3)-K*H)*P_pre;
     %==== Plot ====   
     drawTrajAndMap(x, last_x, P, t);
     last_x = x;
-    
+    drawnow limitrate;
     %==== Iteration & read next control data ===
     t = t + 1;
     tline = fgets(fid);
-end
-
-%==== EVAL: Plot ground truth landmarks ====
-
-% Write your code here...
     
+end
+%==== EVAL: Plot ground truth landmarks ====
+landmark_true_x = [6,6,10,10,14,14];
+landmark_true_y = [6,12,6,12,6,12];
+% Write your code here...
+plot(landmark_true_x, landmark_true_y, '*k');
 
 %==== Close data file ====
 fclose(fid);
