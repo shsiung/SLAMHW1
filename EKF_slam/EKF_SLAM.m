@@ -163,7 +163,7 @@ end
 landmark_true_x = [6,6,10,10,14,14];
 landmark_true_y = [6,12,6,12,6,12];
 % Write your code here...
-plot(landmark_true_x, landmark_true_y, 'ok');
+plot(landmark_true_x, landmark_true_y, '.k','MarkerSize',20);
 
 %==== Close data file ====
 fclose(fid);
