@@ -49,15 +49,15 @@ for i = 1 : 2 : k*2
 end
 
 %Measurement Jacobian w.r.t pose
-dzdp = @(i) [1, 0, -sin(measure(i));...
-                0 , 1, cos(measure(i))];
+dzdp = @(i,j) [1, 0, -measure(j)*sin(measure(i));...
+               0, 1, measure(j)*cos(measure(i))];
 %Measurement Jacobian w.r.t landmark
 dzdl = @(i,j) [-measure(j)*sin(measure(i)), cos(measure(i)); ...
-                 measure(j)*cos(measure(i)), sin(measure(i))]; 
+                measure(j)*cos(measure(i)), sin(measure(i))]; 
 landmark_cov = zeros(k*2, k*2);
 for i = 1 : 2 : k*2
    j = i+1;
-   landmark_cov(i:j,i:j) = dzdp(i)*pose_cov*dzdp(i)'+dzdl(i,j)*measure_cov*dzdl(i,j)';
+   landmark_cov(i:j,i:j) = dzdp(i,j)*pose_cov*dzdp(i,j)'+dzdl(i,j)*measure_cov*dzdl(i,j)';
 end
 %==== Setup state vector x with pose and landmark vector ====
 x = [pose ; landmark];
@@ -114,17 +114,9 @@ while ischar(tline)
     
     % Write your code here...
   
-    %Measurement Jacobian w.r.t pose
-    %dzdp = @(i) [1, 0, -sin(measure(i)+x_pre(3));...
-    %                0 , 1, cos(measure(i)+x_pre(3))];
-    %Measurement Jacobian w.r.t landmark
-    %dzdl = @(i,j) [-measure(j)*sin(measure(i)+x_pre(3)), cos(measure(i)+x_pre(3)); ...
-    %                 measure(j)*cos(measure(i)+x_pre(3)), sin(measure(i)+x_pre(3))]; 
     B = zeros(k*2, k*2);
     for i = 1 : 2 : k*2
        B(i:i+1,i:i+1) = measure_cov;
-      % B(i+3:i+4,i+3:i+4) = dzdp(i)*pose_cov*dzdp(i)'+dzdl(i,i+1)*measure_cov*dzdl(i,i+1)';
-       %landmark_cov(i:j,i:j) = dz_dl(i,j)*[landmark(i);landmark(i+1)]*dz_dl(i,j)';
     end
     
     % beta, alpha to lx, ly
@@ -171,7 +163,7 @@ end
 landmark_true_x = [6,6,10,10,14,14];
 landmark_true_y = [6,12,6,12,6,12];
 % Write your code here...
-plot(landmark_true_x, landmark_true_y, '*k');
+plot(landmark_true_x, landmark_true_y, 'ok');
 
 %==== Close data file ====
 fclose(fid);
