@@ -11,7 +11,7 @@ sig_x = 0.25;%0.25;
 sig_y = 0.1;%0.1;
 sig_alpha = 0.1;%0.1;
 sig_beta = 0.01;%0.01;
-sig_r = 0.08;%0.08;
+sig_r = 0.01;%0.08;
 
 %==== Generate sigma^2 from sigma ===
 sig_x2 = sig_x^2;
@@ -168,11 +168,10 @@ plot(landmark_true_x, landmark_true_y, '.k','MarkerSize',20);
 EUdistance = zeros(6,1);
 MANdistance = zeros(6,1);
 for i = 1:2:2*k
-    
     errDis = [x(i+3)-landmark_true_x(floor(i/2+1));
               x(i+4)-landmark_true_y(floor(i/2+1))];
-    MANdistance(floor(i/2+1)) = sqrt(dot(errDis,errDis));
-    EUdistance(floor(i/2+1)) = sqrt(errDis'*P(i+3:i+4,i+3:i+4)*errDis);
+    EUdistance(floor(i/2+1)) = sqrt(dot(errDis,errDis));
+    MANdistance(floor(i/2+1)) = sqrt(errDis'*P(i+3:i+4,i+3:i+4)^-1*errDis);
 
 end
 
