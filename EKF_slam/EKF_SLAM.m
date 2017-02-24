@@ -7,11 +7,11 @@ clear;
 clf;
 
 %==== TEST: Setup uncertianty parameters (try different values!) ===
-sig_x = 0.25;
-sig_y = 0.1;
-sig_alpha = 0.1;
-sig_beta = 0.01;
-sig_r = 0.08;
+sig_x = 0.25;%0.25;
+sig_y = 0.1;%0.1;
+sig_alpha = 0.1;%0.1;
+sig_beta = 0.01;%0.01;
+sig_r = 0.08;%0.08;
 
 %==== Generate sigma^2 from sigma ===
 sig_x2 = sig_x^2;
@@ -44,8 +44,8 @@ pose_cov = diag([0.02^2, 0.02^2, 0.1^2]);
 k = length(measure)/2;
 landmark = zeros(k*2,1);
 for i = 1 : 2 : k*2
-        landmark(i)= cos(measure(i))*measure(i+1);
-        landmark(i+1)= sin(measure(i))*measure(i+1);
+        landmark(i)= pose(1)+cos(measure(i)+pose(3))*measure(i+1);
+        landmark(i+1)= pose(2) + sin(measure(i)+pose(3))*measure(i+1);
 end
 
 %Measurement Jacobian w.r.t pose
@@ -93,8 +93,8 @@ while ischar(tline)
                   0, 0,  1];
     %    State Jacobian w.r.t input
     B = zeros(3+2*k, 3+2*k);
-    B(1:3,1:3) = [cos(theta_t), 0 ,0;...
-                  sin(theta_t), 0, 0;...
+    B(1:3,1:3) = [cos(theta_t), -sin(theta_t) ,0;...
+                  sin(theta_t), cos(theta_t), 0;...
                              0, 0, 1];
 
     C_cov = zeros(3+2*k, 3+2*k);
@@ -127,8 +127,8 @@ while ischar(tline)
     end
     
     %Landmark Jacobian w.r.t pose
-    delta_x = @(i) z(i)-x_pre(1);
-    delta_y = @(j) z(j)-x_pre(2);
+    delta_x = @(i) x_pre(i+3)-x_pre(1);
+    delta_y = @(j) x_pre(j+3)-x_pre(2);
     dldp = @(i,j) [delta_y(j)/(delta_x(i)^2+delta_y(j)^2), -delta_x(i)/(delta_x(i)^2+delta_y(j)^2), -1;...
                    -delta_x(i)/sqrt((delta_x(i)^2+delta_y(j)^2)) , -delta_y(j)/sqrt((delta_x(i)^2+delta_y(j)^2)), 0];
     %Landmark Jacobian w.r.t landmark
@@ -164,6 +164,17 @@ landmark_true_x = [6,6,10,10,14,14];
 landmark_true_y = [6,12,6,12,6,12];
 % Write your code here...
 plot(landmark_true_x, landmark_true_y, '.k','MarkerSize',20);
+
+EUdistance = zeros(6,1);
+MANdistance = zeros(6,1);
+for i = 1:2:2*k
+    
+    errDis = [x(i+3)-landmark_true_x(floor(i/2+1));
+              x(i+4)-landmark_true_y(floor(i/2+1))];
+    MANdistance(floor(i/2+1)) = sqrt(dot(errDis,errDis));
+    EUdistance(floor(i/2+1)) = sqrt(errDis'*P(i+3:i+4,i+3:i+4)*errDis);
+
+end
 
 %==== Close data file ====
 fclose(fid);
