@@ -146,7 +146,7 @@ while ischar(tline)
         z_hat(i) = wrapToPi(atan2(x_pre(i+4)-x_pre(2),x_pre(i+3)-x_pre(1))-x_pre(3));
         z_hat(i+1) = sqrt((x_pre(i+3)-x_pre(1))^2 + (x_pre(i+4)-x_pre(2))^2);
     end
-    
+
     K = P_pre*H'*(H*P_pre*H'+B)^-1;
     x = x_pre + K*(measure - z_hat);
     P = (eye(2*k+3,2*k+3)-K*H)*P_pre;
