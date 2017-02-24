@@ -11,7 +11,7 @@ sig_x = 0.25;%0.25;
 sig_y = 0.1;%0.1;
 sig_alpha = 0.1;%0.1;
 sig_beta = 0.01;%0.01;
-sig_r = 0.01;%0.08;
+sig_r = 0.08;%0.08;
 
 %==== Generate sigma^2 from sigma ===
 sig_x2 = sig_x^2;
